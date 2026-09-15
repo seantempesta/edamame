@@ -282,7 +282,17 @@
          ctx (assoc ctx :delims (->Delims delimiter opened row col))]
      (loop [vals (transient into)]
        (let [;; if next-val is uneval, we get back the expected delimiter...
-             next-val (parse-next ctx reader)
+             next-val (try
+                        (parse-next ctx reader)
+                        (catch #?(:clj Exception :cljs :default :cljd dynamic :cljr Exception) failure
+                          (throw
+                           (ex-info (ex-message failure)
+                                    (update (ex-data failure) :edamame/containers
+                                            (fnil conj [])
+                                            {:edamame/opened-delimiter (str opened)
+                                             :edamame/row row :edamame/column col
+                                             :edamame/elements (persistent! vals)})
+                                    failure))))
              cond-splice? (some-> next-val meta :edamame/read-cond-splicing)]
          (cond
            (identical? eof next-val)
@@ -474,8 +484,9 @@
 
        (or (when-let [p (parse-symbol token)]
              (symbol (p 0) (p 1)))
-           (throw-reader ctx reader (str "Invalid symbol: " token) (update (location reader)
-                                                                           :col - (count token))))))))
+           (throw-reader ctx reader (str "Invalid symbol: " token)
+                         {:edamame/token token :edamame/token-kind :symbol}
+                         (update (location reader) :col - (count token))))))))
 
 (defn parse-namespaced-map [ctx #?(:cljs ^not-native reader :default reader)]
   (let [peeked-char (r/peek-char reader)
@@ -658,7 +669,9 @@
                           kns (auto-resolve ctx f :current reader token "Use `:auto-resolve` + `:current` to resolve current namespace.")]
                       (keyword (str kns) (subs token-name 1)))))
                 (keyword token)))
-            (throw-reader ctx reader (str "Invalid keyword: :"  token "."))))))))
+            (throw-reader ctx reader (str "Invalid keyword: :"  token ".")
+                          {:edamame/token (str ":" token)
+                           :edamame/token-kind :keyword})))))))
 
 (defn desugar-meta
   "Resolves syntactical sugar in metadata" ;; could be combined with some other desugar?
