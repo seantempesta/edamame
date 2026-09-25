@@ -189,7 +189,8 @@
             (macro? ch)
             (nil? ch))
       (let [s (str sb)]
-        (r/unread rdr ch)
+        (when ch
+          (r/unread rdr ch))
         (or (commons/match-number s)
             (throw-reader ctx rdr (str "Invalid number: " s))))
       (recur (doto sb #?(:clj (.append ch) :cljs (.append ch) :cljd (.write ch) :cljr (.Append (str ch)))) (r/read-char rdr)))))
