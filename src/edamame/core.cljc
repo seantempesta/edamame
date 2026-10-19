@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as str]
    #?(:cljd [edamame.impl.cljd-reader-types :as rt]
+      :clj [edamame.impl.reader.types :as rt]
       :default [clojure.tools.reader.reader-types :as rt])
    [edamame.impl.ns-parser :as nsp]
    [edamame.impl.parser :as p]))
@@ -111,11 +112,15 @@
   [x]
   (p/source-logging-reader x))
 
+(defn- coerce [reader]
+  #?(:clj (rt/coerce reader)
+     :default reader))
+
 (defn get-line-number [reader]
-  (p/get-line-number reader))
+  (p/get-line-number (coerce reader)))
 
 (defn get-column-number [reader]
-  (p/get-column-number reader))
+  (p/get-column-number (coerce reader)))
 
 (defn normalize-opts
   "Expands `opts` into normalized opts, e.g. `:all true` is expanded
@@ -128,18 +133,19 @@
   but must be normalized with `normalize-opts` first."
   ([reader] (parse-next reader (p/normalize-opts {})))
   ([reader normalized-opts]
-   (when (rt/source-logging-reader? reader)
-     #?(:cljd (rt/log-start! reader)
-        :default
-        (let [^StringBuilder buf (p/buf reader)]
-          #?(:clj (.setLength buf 0)
-             :cljs (.clear buf)
-             :cljr (.set_Length buf 0)))))
-   (let [v (p/parse-next normalized-opts reader)]
-     (if (identical? p/eof v)
-       (or (get normalized-opts :eof)
-           ::eof)
-       v))))
+   (let [reader (coerce reader)]
+     (when (rt/source-logging-reader? reader)
+       #?(:cljd (rt/log-start! reader)
+          :default
+          (let [^StringBuilder buf (p/buf reader)]
+            #?(:clj (.setLength buf 0)
+               :cljs (.clear buf)
+               :cljr (.set_Length buf 0)))))
+     (let [v (p/parse-next normalized-opts reader)]
+       (if (identical? p/eof v)
+         (or (get normalized-opts :eof)
+             ::eof)
+         v)))))
 
 (defn parse-next+string
   "Parses next form from reader. Accepts same opts as `parse-string`,

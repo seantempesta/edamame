@@ -6,23 +6,23 @@
    #?(:cljd [edamame.impl.cljd-shim :as edn]
       :cljs [cljs.tools.reader.edn :as edn]
       :cljr [clojure.tools.reader.edn :as edn]
-      :clj  [clojure.tools.reader.edn :as edn])
+      :clj  [edamame.impl.reader.edn :as edn])
    #?(:cljd [edamame.impl.cljd-reader-types :as r]
       :cljs [cljs.tools.reader.reader-types :as r]
       :cljr [clojure.tools.reader.reader-types :as r]
-      :clj  [clojure.tools.reader.reader-types :as r])
+      :clj  [edamame.impl.reader.types :as r])
    #?(:cljd [edamame.impl.cljd-shim :as i]
       :cljs [cljs.tools.reader.impl.inspect :as i]
       :cljr [clojure.tools.reader.impl.inspect :as i]
-      :clj  [clojure.tools.reader.impl.inspect :as i])
+      :clj  [edamame.impl.reader.inspect :as i])
    #?(:cljd [edamame.impl.cljd-shim :as utils :refer [namespace-keys reader-conditional]]
       :cljs [cljs.tools.reader.impl.utils :refer [namespace-keys reader-conditional]]
       :cljr [clojure.tools.reader.impl.utils :as utils :refer [namespace-keys whitespace?]]
-      :clj [clojure.tools.reader.impl.utils :as utils :refer [namespace-keys]])
+      :clj [edamame.impl.reader.utils :as utils :refer [namespace-keys]])
    #?(:cljd [edamame.impl.cljd-shim :as commons]
       :cljs [cljs.tools.reader.impl.commons :as commons]
       :cljr [clojure.tools.reader.impl.commons :as commons]
-      :clj [clojure.tools.reader.impl.commons :as commons])
+      :clj [edamame.impl.reader.commons :as commons])
    #?(:cljs [cljs.tagged-literals :refer [*cljs-data-readers*]])
    [clojure.string :as str]
    [edamame.impl.macros :as macros]
@@ -843,7 +843,7 @@
 
 (defn buf [reader]
   #?(:cljd (r/log-string reader)
-     :clj (:buffer @(.source-log-frames ^clojure.tools.reader.reader_types.SourceLoggingPushbackReader reader))
+     :clj (:buffer @(r/source-log-frames reader))
      :cljs (:buffer @(.-frames reader))
      :cljr (:buffer @(.source-log-frames ^clojure.tools.reader.reader_types.SourceLoggingPushbackReader reader))))
 
@@ -1061,7 +1061,7 @@
 
 (defn source-logging-reader
   [x]
-  #?(:clj (r/source-logging-push-back-reader (r/push-back-reader x))
+  #?(:clj (r/compat-source-logging-reader x)
      :cljs (let [string-reader (r/string-reader x)
                  buf-len 1
                  pushback-reader (r/PushbackReader. string-reader

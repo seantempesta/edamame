@@ -4,6 +4,7 @@
    #?@(:cljd [] :clj [[clojure.java.io :as io]])
    #?(:cljr [clojure.clr.io :as io])
    #?@(:cljd [] :clj [[clojure.tools.reader :as tr]])
+   #?@(:cljd [] :clj [[clojure.tools.reader.reader-types :as tr-rt]])
    #?@(:cljd [] :clj [[flatland.ordered.map :as omap]])
    #?@(:cljd [] :clj [[flatland.ordered.set :as oset]])
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])
@@ -974,3 +975,34 @@
          (let [form (e/parse-next ir opts)]
            (is (= '(+ 3 4) form))
            (is (= {:row 1 :col 9 :end-row 1 :end-col 16} (meta form))))))))
+
+#?(:clj
+   (deftest tools-reader-readers-test
+     (let [opts (e/normalize-opts {:all true :end-location false})]
+       (testing "an indexing reader yields locations and keeps its position"
+         (let [rdr (tr-rt/indexing-push-back-reader "(+ 1 2)\n  [x]")]
+           (is (= '(+ 1 2) (e/parse-next rdr opts)))
+           (is (= \newline (tr-rt/read-char rdr)))
+           (let [form (e/parse-next rdr opts)]
+             (is (= '[x] form))
+             (is (= {:row 2 :col 3} (meta form))))
+           (is (= 2 (e/get-line-number rdr)))
+           (is (= :edamame.core/eof (e/parse-next rdr opts)))))
+       (testing "a plain pushback reader yields forms without locations"
+         (let [form (e/parse-next (tr-rt/string-push-back-reader "(+ 1 2)") opts)]
+           (is (= '(+ 1 2) form))
+           (is (nil? (meta form)))))
+       (testing "a source logging reader yields source strings"
+         (let [rdr (tr-rt/source-logging-push-back-reader "1 [1  2 3]")]
+           (is (= [1 "1"] (e/parse-next+string rdr opts)))
+           (is (= [[1 2 3] "[1  2 3]"] (e/parse-next+string rdr opts)))))
+       (testing "tools.reader functions accept edamame readers"
+         (let [rdr (e/reader "(+ 1 2)\n[x]")]
+           (is (tr-rt/indexing-reader? rdr))
+           (is (= '(+ 1 2) (e/parse-next rdr opts)))
+           (is (= \newline (tr-rt/read-char rdr)))
+           (is (= 2 (tr-rt/get-line-number rdr))))
+         (is (tr-rt/source-logging-reader? (e/source-reader "x"))))
+       (testing "a java.io.PushbackReader yields forms"
+         (is (= '(+ 1 2) (e/parse-next (java.io.PushbackReader. (java.io.StringReader. "(+ 1 2)"))
+                                       opts)))))))
